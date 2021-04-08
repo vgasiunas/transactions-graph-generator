@@ -2,6 +2,7 @@ import csv
 import threading
 import os
 from models.Transaction import Transaction
+from itertools import zip_longest
 from .utils import writeBatch, log
 
 transactionHeaders = ['id', 'source', 'target', 'date', 'time', 'amount', 'currency']
@@ -18,26 +19,33 @@ def __generateTransactions(edges, transactionsFile, batchSize, label):
 		batch = []
 		sourceNodesCount = 0
 
-		for sourceNode, targets in edges.items():
-			sourceNodesCount += 1
-			if sourceNodesCount % batchSize == 1: log(label + ": generating transactions for source node " + str(sourceNodesCount) + ", transaction count: " + str(totalNumberOfTransactions))
-			
-			targetNodesCount = 0
-			for targetNode, transactionsCount in targets.items():
-				targetNodesCount += 1
+		def _batch_generator(batch_size):
+			l = len(edges)
+			log(label + ": total edges: " + str(l) + " BatchSize: " + str(batch_size))
+			for ndx in range(0, l, batch_size):
+				_b_edges =[(k,edges[k])
+								   for k in list(edges.keys())[ndx:min(ndx + batch_size, l)]]
 
-				for i in range(0, transactionsCount):
-					t = Transaction(sourceNode, targetNode)
+				_b_edges = [[(srcNode, _targets)
+										for srcNode, _targets in
+										zip([tran[0]]*len(tran[1]),tran[1].items())] for tran in _b_edges]
 
-					batch.append(t.toRow(transactionHeaders))
-					totalNumberOfTransactions += 1
+				_b_edges = [item for sublist in _b_edges for item in sublist]
+				log(label + ": total targets: " + str(len(_b_edges)))
 
-				if len(batch) > batchSize:
-					writeBatch(transactions, batch)
-					batch = []
+				_b_edges = [[Transaction(target[0],target[1][0]).toRow(transactionHeaders)
+							 for _ in range(target[1][1])]
+								for target in _b_edges]
 
-		if len(batch) != 0:
-			writeBatch(transactions, batch)
+				_b_edges = [item for sublist in _b_edges for item in sublist]
+
+				yield _b_edges
+
+		for _batch_result in _batch_generator(batchSize):
+			sourceNodesCount += len(_batch_result)
+			writeBatch(transactions, _batch_result)
+			log(label + ": generating transactions for source node " + str(
+				sourceNodesCount) + ", transaction count: " + str(totalNumberOfTransactions))
 
 		log(label + ": TOTAL: generating transactions for source node " + str(sourceNodesCount) + ", transaction count: " + str(totalNumberOfTransactions))
 

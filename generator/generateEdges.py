@@ -2,7 +2,8 @@ import csv
 import os
 import threading
 import math
-from random import random
+import numpy as np
+from random import random, sample
 from .utils import writeBatch, log
 
 def __transactionCount():
@@ -15,62 +16,68 @@ def __generateEdges(sourceNodes, targetNodes, outputFile, connectionProbability,
 	except OSError:
 		pass
 
+	log(label + ": connProb: " + str(connectionProbability) )
+
 	totalNumberOfEdges = 0
 	with open(outputFile, 'a') as file:
 		batch = []
 		sourceNodesCount = 0
 
-		for sourceNode in sourceNodes:
-			sourceNodesCount += 1
-			edgesOutOfSourceNode = [sourceNode, {}]
+		def _batch_generator(batch_size):
+			l = len(sourceNodes)
+			for ndx in range(0, l, batch_size):
+				_batch_src_nodes = sourceNodes[ndx:min(ndx + batch_size, l)]
+				_batch = ['|'.join([src, '"' +
+									str({tgt: __transactionCount() for tgt in sample(targetNodes,
+												 max(int(len(targetNodes)
+												 *np.random.normal(connectionProbability,0.005)),0))}
+										  ) + '"'])
+						  for src in _batch_src_nodes]
 
-			if sourceNodesCount % batchSize == 1:
-				log(label + ': Source node number ' + str(sourceNodesCount) + ', number of edges: ' + str(totalNumberOfEdges))
 
-			for targetNode in targetNodes:
-				if sourceNode == targetNode: continue
-				
-				if random() < connectionProbability:
-					connectionsNumber = __transactionCount()
-					edgesOutOfSourceNode[1][targetNode] = connectionsNumber
-					totalNumberOfEdges += 1
+				yield _batch
 
-			edgesOutOfSourceNode[1] = '"' + str(edgesOutOfSourceNode[1]) + '"'
-			batch.append('|'.join(edgesOutOfSourceNode))
+		for _batch_result in _batch_generator(batchSize):
+			sourceNodesCount += len(_batch_result)
+			#edgesOutOfSourceNode = [sourceNode, {}]
+			log(label + ': Source node number ' + str(sourceNodesCount) + ', number of edges: '
+				+ str(totalNumberOfEdges))
 
-			if (len(batch) > batchSize):
-				writeBatch(file, batch)
-				batch = []
+			#totalNumberOfEdges += len(edgesOutOfSourceNode[1])
+			#batch.append('|'.join(edgesOutOfSourceNode))
 
-		writeBatch(file, batch)
+			writeBatch(file, _batch_result)
+			batch = []
+		#writeBatch(file, batch)
 		log(label + ' ### TOTAL number of edges ' + str(totalNumberOfEdges))
+
 
 def generateEdges(files, probs, batchSize):
 	print("Reading nodes in memory")
-	clients = set()
-	companies = set()
-	atms = set()
+	clients = list()
+	companies = list()
+	atms = list()
 
 	with open(files['client'], 'r') as f:
 		reader = csv.reader(f, delimiter="|")
 		next(reader)
 		log("Loading clients...")
 		for row in reader:
-			clients.add(row[0])
+			clients.append(row[0])
 
 	with open(files['company'], 'r') as f:
 		reader = csv.reader(f, delimiter="|")
 		next(reader)
 		log("Loading companies...")
 		for row in reader:
-			companies.add(row[0])
+			companies.append(row[0])
 
 	with open(files['atm'], 'r') as f:
 		reader = csv.reader(f, delimiter="|")
 		next(reader)
 		log("Loading atms...")
 		for row in reader:
-			atms.add(row[0])
+			atms.append(row[0])
 
 	clientClientEdgesProcess = threading.Thread(target=lambda: __generateEdges(
 		clients,
@@ -96,7 +103,7 @@ def generateEdges(files, probs, batchSize):
 		batchSize,
 		label='client->atm'
 	))
-	comapnyClientEdgesProcess = threading.Thread(target=lambda: __generateEdges(
+	companyClientEdgesProcess = threading.Thread(target=lambda: __generateEdges(
 		companies,
 		clients,
 		files['companies-clients-edges'],
@@ -108,9 +115,9 @@ def generateEdges(files, probs, batchSize):
 	clientClientEdgesProcess.start()
 	clientCompanyEdgesProcess.start()
 	clientAtmEdgesProcess.start()
-	comapnyClientEdgesProcess.start()
+	companyClientEdgesProcess.start()
 
 	clientClientEdgesProcess.join()
 	clientCompanyEdgesProcess.join()
 	clientAtmEdgesProcess.join()
-	comapnyClientEdgesProcess.join()
+	companyClientEdgesProcess.join()

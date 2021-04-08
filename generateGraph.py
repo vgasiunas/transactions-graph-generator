@@ -63,8 +63,8 @@ files = {
 }
 
 statistics = {
-	"company": 0.025,
-	"atm": 0.0005
+	"company": 0.00025,
+	"atm": 0.00005
 }
 
 counts = {
