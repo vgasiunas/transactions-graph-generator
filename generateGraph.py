@@ -36,6 +36,13 @@ parser.add_argument(
 	action="store",
 	default=10000
 )
+parser.add_argument(
+	"--transaction-count",
+	help="Number of transactions to create",
+	type=int,
+	action="store",
+	default=0
+)
 
 args = parser.parse_args()
 ### ### ###
@@ -57,6 +64,10 @@ files = {
 	"clients-sourcing-transactions": dataDir + '/nodes.transactions.client-sourcing.csv',
 	"companies-sourcing-transactions": dataDir + '/nodes.transactions.company-sourcing.csv',
 
+	"client-client-transactions": dataDir + '/nodes.transactions.client-client.csv',
+	"client-company-transactions": dataDir + '/nodes.transactions.client-company.csv',
+	"company-client-transactions": dataDir + '/nodes.transactions.company-client.csv',
+
 	"flow-pattern-transactions": dataDir + '/nodes.transactions.patterns.flow.csv',
 	"circular-pattern-transactions": dataDir + '/nodes.transactions.patterns.circular.csv',
 	"time-pattern-transactions": dataDir + '/nodes.transactions.patterns.time.csv'
@@ -71,6 +82,7 @@ counts = {
 	"client" : args.population,
 	"company" : math.ceil(statistics['company'] * args.population),
 	"atm" : math.ceil(statistics['atm'] * args.population)	,
+	"tran_count" : getattr(args, 'transaction_count')
 }
 ### ### ###
 
@@ -100,7 +112,7 @@ if 'transactions' in steps:
 	log()
 	log('------------##############------------')
 	log('Generating transactions')
-	generateTransactions(files, batchSize)
+	generateTransactions(files, batchSize, trans_count=counts["tran_count"])
 
 # Inserting patterns in edges
 if 'patterns' in steps:
