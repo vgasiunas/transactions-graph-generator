@@ -45,6 +45,7 @@ def generateFlowPattern(nodes):
   transactions = []
   participatingIndexes = set()
   patternStructure = []
+  completionDates = []
 
   currentDate = None
   currentTime = None
@@ -65,6 +66,7 @@ def generateFlowPattern(nodes):
   for layer in range(numberOfLayers):
     nodesPerLayer = randint(1, 8) # Magic limits, number of nodes per layer
     patternStructure.append([])
+    completionDates.append([])
 
     if layer != numberOfLayers - 1:
       totalPaybackPerLayer -= 0.1 * random() * initialTotalPaybackPerLayer
@@ -101,11 +103,18 @@ def generateFlowPattern(nodes):
         transactions.append(t.toRow(transactionsHeader))
         i += 1
 
+        completionDates[layer].append({ 'date' : currentDate, 'time' : currentTime })
+
     else:
       prevLayerLength = len(patternStructure[layer-1])
       currentLayerLength = len(patternStructure[layer])
 
-      for sourceNode in patternStructure[layer-1]:
+      for srcIdx in range(prevLayerLength):
+        sourceNode = patternStructure[layer-1][srcIdx]
+        startDateTime = completionDates[layer-1][srcIdx]
+        currentDate = startDateTime['date']
+        currentTime = startDateTime['time']
+
         for targetNode in patternStructure[layer]:
           amount = (remainingSum - totalPaybackPerLayer) / (prevLayerLength * currentLayerLength)
           t = Transaction(sourceNode, targetNode)
@@ -119,9 +128,16 @@ def generateFlowPattern(nodes):
 
           transactions.append(t.toRow(transactionsHeader))
 
+          if (srcIdx == prevLayerLength - 1):
+            completionDates[layer].append({ 'date' : currentDate, 'time' : currentTime })
+
       remainingSum -= totalPaybackPerLayer
   
   lastLayerLength = len(patternStructure[numberOfLayers - 1])
+  startDateTime = completionDates[numberOfLayers-1][0]
+  currentDate = startDateTime['date']
+  currentTime = startDateTime['time']
+
   for node in patternStructure[numberOfLayers - 1]:
     amount = remainingSum / lastLayerLength
     t = Transaction(node, nodes[endIdx])
