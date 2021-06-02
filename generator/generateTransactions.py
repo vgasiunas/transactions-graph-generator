@@ -112,14 +112,14 @@ def generateTransaction_edges(files, batchSize):
 				companyEdges[row[0]] = {}
 			companyEdges[row[0]].update(eval(row[1]))
 
-	clientSourcingTransactions = threading.Thread(target=lambda: __generateTransactions(
+	clientSourcingTransactions = threading.Thread(target=lambda: __generateTransactions_edges(
 		clientEdges,
 		files['clients-sourcing-transactions'],
 		batchSize,
 		label='transaction(client->*)'
 	))
 
-	companyClientTransactions = threading.Thread(target=lambda: __generateTransactions(
+	companyClientTransactions = threading.Thread(target=lambda: __generateTransactions_edges(
 		companyEdges,
 		files['companies-sourcing-transactions'],
 		batchSize,
